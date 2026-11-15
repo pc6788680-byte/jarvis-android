@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout Repository
@@ -18,21 +18,24 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK 35
+      - name: Configure Android SDK
         run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME"
+          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Extract JARVIS ZIP
         run: |
+          mkdir -p extracted
           unzip -q JarvisAI-AndroidIDE-Fixed.zip -d extracted
-          ls -la extracted/JarvisAI-AndroidIDE-Fixed
+          find extracted -maxdepth 3 -type f | head -30
 
       - name: Build APK
-        working-directory: extracted/JarvisAI-AndroidIDE-Fixed
         run: |
+          PROJECT=$(find extracted -name settings.gradle.kts -printf '%h\n' | head -1)
+          test -n "$PROJECT" || { echo "Android project not found"; exit 1; }
+          cd "$PROJECT"
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
@@ -40,5 +43,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: JARVIS-AI-APK
-          path: extracted/JarvisAI-AndroidIDE-Fixed/app/build/outputs/apk/debug/*.apk
+          path: extracted/**/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
